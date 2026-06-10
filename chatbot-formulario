@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GM Physique Lab — Evaluación Inicial</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --black:    #0D0D0D;
+    --blue:     #0066FF;
+    --blue-dim: #0044BB;
+    --blue-glow:#1a4fff33;
+    --dark:     #141414;
+    --surface:  #1C1C1C;
+    --surface2: #242424;
+    --border:   #2E2E2E;
+    --gray:     #8A8A8A;
+    --light:    #C8C8C8;
+    --white:    #F5F5F5;
+    --green:    #00C97A;
+    --bubble-bot: #1E2A3A;
+    --bubble-user:#0055DD;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--black);
+    color: var(--white);
+    overscroll-behavior: none;
+  }
+
+  /* ── LAYOUT ──────────────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    background: var(--dark);
+    box-shadow: 0 0 80px #0033aa22;
+  }
+
+  /* ── HEADER ──────────────────────────────────────── */
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+  #header-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), #003399);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px var(--blue-dim);
+  }
+  #header-info { flex: 1; min-width: 0; }
+  #header-name { font-size: 14px; font-weight: 700; color: var(--white); }
+  #header-status {
+    font-size: 11px; color: var(--green);
+    display: flex; align-items: center; gap: 5px;
+  }
+  #header-status::before {
+    content: ''; display: inline-block;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  #progress-wrap {
+    width: 100%; height: 3px;
+    background: var(--border);
+    position: relative; flex-shrink: 0;
+  }
+  #progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), #44aaff);
+    width: 0%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--blue);
+  }
+  #step-counter {
+    font-size: 11px; color: var(--gray); white-space: nowrap;
+  }
+
+  /* ── CHAT AREA ───────────────────────────────────── */
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+  #chat::-webkit-scrollbar { width: 4px; }
+  #chat::-webkit-scrollbar-track { background: transparent; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── BUBBLES ─────────────────────────────────────── */
+  .msg { display: flex; align-items: flex-end; gap: 8px; animation: fadeUp 0.3s ease; }
+  .msg.bot { justify-content: flex-start; }
+  .msg.user { justify-content: flex-end; }
+
+  .avatar-sm {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), #003399);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: #fff;
+    flex-shrink: 0; align-self: flex-end;
+  }
+
+  .bubble {
+    max-width: 80%;
+    padding: 11px 14px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.55;
+    position: relative;
+  }
+  .bubble.bot {
+    background: var(--bubble-bot);
+    border-bottom-left-radius: 4px;
+    color: var(--light);
+    border: 1px solid #1e3050;
+  }
+  .bubble.user {
+    background: var(--bubble-user);
+    border-bottom-right-radius: 4px;
+    color: #fff;
+    border: 1px solid #0044cc;
+  }
+  .bubble strong { color: #fff; }
+  .bubble .section-tag {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    color: var(--blue);
+    background: #0011330;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+  }
+
+  /* typing dots */
+  .typing { display: flex; gap: 5px; align-items: center; padding: 14px 16px; }
+  .typing span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--blue);
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+
+  /* ── OPTIONS (chips) ─────────────────────────────── */
+  .options-wrap {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 4px 0 4px 36px;
+    animation: fadeUp 0.35s ease;
+  }
+  .opt-btn {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--blue-dim);
+    background: transparent;
+    color: var(--light);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all .18s;
+  }
+  .opt-btn:hover, .opt-btn.selected {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 0 10px var(--blue-glow);
+  }
+  .opt-multi.selected {
+    background: #003388;
+    border-color: var(--blue);
+    color: #fff;
+  }
+
+  /* ── INPUT AREA ──────────────────────────────────── */
+  #input-area {
+    padding: 12px 14px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  #user-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 16px;
+    color: var(--white);
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    transition: border-color .2s;
+    min-height: 44px;
+    max-height: 120px;
+    line-height: 1.4;
+  }
+  #user-input:focus { border-color: var(--blue); }
+  #user-input::placeholder { color: var(--gray); }
+  #send-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--blue);
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 2px 12px var(--blue-glow);
+  }
+  #send-btn:hover { transform: scale(1.07); box-shadow: 0 4px 18px #0066ff55; }
+  #send-btn:active { transform: scale(0.96); }
+  #hint {
+    font-size: 11px; color: var(--gray);
+    text-align: center; padding-bottom: 2px;
+  }
+
+  /* ── SUMMARY / FINISH ────────────────────────────── */
+  #summary-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--blue);
+    border-radius: 14px;
+    padding: 18px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #summary-card h3 {
+    font-size: 13px; font-weight: 700;
+    color: var(--blue); text-transform: uppercase; letter-spacing: .06em;
+  }
+  .sum-row { display: flex; gap: 8px; flex-direction: column; }
+  .sum-item { font-size: 12px; color: var(--light); line-height: 1.5; }
+  .sum-item strong { color: var(--white); display: block; font-size: 11px; color: var(--gray); }
+  #copy-btn, #wa-btn {
+    padding: 11px 18px; border-radius: 10px;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: all .18s;
+  }
+  #copy-btn {
+    background: var(--surface); color: var(--light);
+    border: 1.5px solid var(--border);
+  }
+  #copy-btn:hover { border-color: var(--blue); color: var(--white); }
+  #wa-btn {
+    background: #25D366; color: #fff;
+    box-shadow: 0 2px 10px #25d36633;
+  }
+  #wa-btn:hover { background: #1ebe5a; }
+
+  /* ── SCREEN: INTRO ───────────────────────────────── */
+  #intro-screen {
+    position: absolute; inset: 0;
+    background: var(--dark);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 28px;
+    text-align: center;
+    z-index: 20;
+    gap: 0;
+  }
+  #intro-logo {
+    font-size: 52px; font-weight: 800;
+    color: var(--blue);
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  #intro-lab {
+    font-size: 13px; font-weight: 700;
+    color: var(--light); letter-spacing: .22em;
+    margin-top: 4px; margin-bottom: 22px;
+  }
+  #intro-divider {
+    width: 48px; height: 2px;
+    background: var(--blue);
+    border-radius: 1px;
+    margin-bottom: 22px;
+    box-shadow: 0 0 10px var(--blue);
+  }
+  #intro-title {
+    font-size: 19px; font-weight: 700; color: var(--white);
+    margin-bottom: 10px;
+  }
+  #intro-desc {
+    font-size: 13.5px; color: var(--gray);
+    line-height: 1.6; margin-bottom: 28px;
+  }
+  #intro-bullets {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%; margin-bottom: 30px; text-align: left;
+  }
+  .bullet-item {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--light);
+  }
+  .bullet-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--blue); flex-shrink: 0;
+  }
+  #start-btn {
+    width: 100%; padding: 15px;
+    background: var(--blue); color: #fff;
+    border: none; border-radius: 12px;
+    font-family: inherit; font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 20px #0066ff44;
+    transition: all .2s;
+  }
+  #start-btn:hover { background: var(--blue-dim); transform: translateY(-1px); }
+  #intro-slogan {
+    font-size: 11px; color: var(--gray);
+    margin-top: 16px; font-style: italic;
+  }
+
+  /* ── ANIMATIONS ──────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30%           { transform: translateY(-6px); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .4; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── INTRO SCREEN ─────────────────────────────── -->
+  <div id="intro-screen">
+    <div id="intro-logo">GM</div>
+    <div id="intro-lab">PHYSIQUE LAB</div>
+    <div id="intro-divider"></div>
+    <div id="intro-title">Evaluación Inicial</div>
+    <p id="intro-desc">
+      Responde las preguntas para que tu entrenador diseñe un programa completamente personalizado para ti.
+    </p>
+    <div id="intro-bullets">
+      <div class="bullet-item"><div class="bullet-dot"></div> 5–8 minutos para completar</div>
+      <div class="bullet-item"><div class="bullet-dot"></div> Tus datos son 100% confidenciales</div>
+      <div class="bullet-item"><div class="bullet-dot"></div> El entrenador recibe un reporte completo</div>
+      <div class="bullet-item"><div class="bullet-dot"></div> Sin apps extra — funciona en tu navegador</div>
+    </div>
+    <button id="start-btn" onclick="startChat()">Comenzar evaluación →</button>
+    <p id="intro-slogan">La ciencia detrás de tu transformación.</p>
+  </div>
+
+  <!-- ── HEADER ───────────────────────────────────── -->
+  <div id="header">
+    <div id="header-avatar">GM</div>
+    <div id="header-info">
+      <div id="header-name">GM Physique Lab</div>
+      <div id="header-status">Evaluación activa</div>
+    </div>
+    <div id="step-counter">0 / 0</div>
+  </div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+
+  <!-- ── CHAT ─────────────────────────────────────── -->
+  <div id="chat"></div>
+
+  <!-- ── SUMMARY (hidden until done) ─────────────── -->
+  <div id="summary-card">
+    <h3>📋 Resumen de tu evaluación</h3>
+    <div class="sum-row" id="sum-rows"></div>
+    <button id="copy-btn" onclick="copyResults()">📋 Copiar texto</button>
+    <button id="wa-btn" onclick="sendToWhatsApp()">
+      <svg style="display:inline;vertical-align:middle;margin-right:6px" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Enviar a entrenador por WhatsApp
+    </button>
+  </div>
+
+  <!-- ── INPUT ─────────────────────────────────────── -->
+  <div id="input-area">
+    <div id="input-row">
+      <textarea id="user-input" placeholder="Escribe tu respuesta..." rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button id="send-btn" onclick="sendMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+    <div id="hint">Presiona Enter para enviar</div>
+  </div>
+
+</div>
+
+<script>
+// ── QUESTIONS FLOW ─────────────────────────────────────────────────────────
+const ENTRENADOR_PHONE = '528719593901'; // GM Physique Lab — Gustavo
+
+const questions = [
+  // Sección 1 — Datos personales
+  { id:'nombre',    section:'Datos personales', text:'¿Cuál es tu nombre completo?', type:'text', placeholder:'Ej: Carlos Hernández Torres' },
+  { id:'edad',      section:'Datos personales', text:'¿Qué edad tienes y cuánto mides? (altura en cm)', type:'text', placeholder:'Ej: 34 años, 178 cm' },
+  { id:'peso',      section:'Datos personales', text:'¿Cuánto pesas actualmente? (kg)', type:'text', placeholder:'Ej: 85 kg' },
+  { id:'ciudad',    section:'Datos personales', text:'¿De qué ciudad eres?', type:'text', placeholder:'Ej: Torreón, Coahuila' },
+  { id:'ocupacion', section:'Datos personales', text:'¿A qué te dedicas?', type:'text', placeholder:'Ej: Empresario, oficinista, estudiante...' },
+
+  // Sección 2 — Objetivo
+  { id:'objetivo', section:'Objetivo principal', text:'¿Cuál es tu objetivo principal? Puedes elegir uno o varios 👇', type:'multi',
+    options:['Ganar masa muscular','Perder grasa corporal','Mejorar condición física','Incrementar fuerza','Recomposición corporal','Preparación deportiva','Rehabilitación / Movilidad'] },
+  { id:'objetivo_desc', section:'Objetivo principal', text:'Cuéntame más sobre tu objetivo. ¿Qué te motivó a buscar un entrenador ahora?', type:'text', placeholder:'Cuéntame con tus palabras...' },
+
+  // Sección 3 — Historial deportivo
+  { id:'entrena_antes', section:'Historial deportivo', text:'¿Has entrenado antes? ¿Por cuánto tiempo y qué tipo de entrenamiento?', type:'text', placeholder:'Ej: Sí, 2 años en gym, pesas y cardio...' },
+  { id:'dias_semana',   section:'Historial deportivo', text:'¿Cuántos días a la semana puedes entrenar actualmente?', type:'single',
+    options:['1–2 días','3 días','4 días','5 días','6–7 días'] },
+  { id:'horario',       section:'Historial deportivo', text:'¿En qué horario prefieres entrenar?', type:'single',
+    options:['Mañana (6–10am)','Mediodía (10am–1pm)','Tarde (1–5pm)','Noche (5–9pm)','Varía según el día'] },
+
+  // Sección 4 — Historial médico
+  { id:'condiciones', section:'Historial médico', text:'¿Tienes alguna condición médica o lesión que el entrenador deba conocer? Selecciona las que apliquen 👇', type:'multi',
+    options:['Hipertensión','Diabetes','Lesión de rodilla','Lesión de espalda','Lesión de hombro','Problemas cardiovasculares','Cirugías previas','Ninguna'] },
+  { id:'med_detalle', section:'Historial médico', text:'¿Hay algo más sobre tu salud que quieras mencionar? (medicamentos, alergias, cirugías...)', type:'text', placeholder:'Escribe aquí o di "Sin novedad"' },
+
+  // Sección 5 — Hábitos
+  { id:'suenio', section:'Hábitos de vida', text:'¿Cuántas horas duermes por noche normalmente?', type:'single',
+    options:['Menos de 5h','5–6h','7–8h','Más de 8h'] },
+  { id:'estres', section:'Hábitos de vida', text:'Del 1 al 10, ¿qué tan alto es tu nivel de estrés en el día a día?', type:'single',
+    options:['1–2 (muy bajo)','3–4 (bajo)','5–6 (moderado)','7–8 (alto)','9–10 (muy alto)'] },
+  { id:'agua',   section:'Hábitos de vida', text:'¿Cuántos litros de agua tomas al día aproximadamente?', type:'single',
+    options:['Menos de 1L','1–1.5L','2L','Más de 2L'] },
+  { id:'actividad', section:'Hábitos de vida', text:'Fuera del gym, ¿cómo describirías tu nivel de actividad diaria?', type:'single',
+    options:['Sedentario (trabajo en escritorio)','Leve (camino un poco)','Moderado (me muevo bastante)','Muy activo (trabajo físico)'] },
+
+  // Sección 6 — Alimentación
+  { id:'comidas',   section:'Alimentación', text:'¿Cuántas veces comes al día?', type:'single',
+    options:['1–2 veces','3 veces','4–5 veces','Más de 5 veces'] },
+  { id:'proteina',  section:'Alimentación', text:'¿Cómo describirías tu consumo actual de proteína?', type:'single',
+    options:['Muy bajo (casi no como carne/huevo)','Regular (como 1 vez al día)','Bueno (2–3 porciones al día)','Alto (muy consciente de la proteína)'] },
+  { id:'suplementos', section:'Alimentación', text:'¿Tomas algún suplemento actualmente?', type:'text', placeholder:'Ej: Proteína whey, creatina, vitaminas... o "Ninguno"' },
+  { id:'restricciones', section:'Alimentación', text:'¿Tienes alguna restricción o preferencia alimenticia?', type:'text', placeholder:'Ej: vegetariano, intolerante a la lactosa, alérgico a... o "Ninguna"' },
+
+  // Cierre
+  { id:'expectativas', section:'Expectativas', text:'Por último: ¿qué esperas de este proceso? ¿Tienes alguna fecha meta o evento en mente?', type:'text', placeholder:'Ej: Quiero verme bien para el verano, o simplemente mejorar mi salud...' },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let current = 0;
+let answers = {};
+let multiSelected = [];
+let awaitingMulti = false;
+let inputDisabled = false;
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+function startChat() {
+  document.getElementById('intro-screen').style.display = 'none';
+  updateProgress();
+  setTimeout(() => askQuestion(0), 400);
+}
+
+// ── PROGRESS ───────────────────────────────────────────────────────────────
+function updateProgress() {
+  const pct = Math.round((current / questions.length) * 100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('step-counter').textContent = `${current} / ${questions.length}`;
+}
+
+// ── ASK QUESTION ───────────────────────────────────────────────────────────
+function askQuestion(idx) {
+  if (idx >= questions.length) { showFinish(); return; }
+  const q = questions[idx];
+  inputDisabled = false;
+  multiSelected = [];
+
+  // Section tag if new section
+  if (idx === 0 || q.section !== questions[idx-1].section) {
+    appendBotBubble(`<span class="section-tag">📍 ${q.section}</span>`, true);
+  }
+
+  setTimeout(() => {
+    showTyping(() => {
+      appendBotBubble(q.text);
+      if (q.type === 'single') {
+        showOptions(q.options, false);
+        lockInput(true);
+      } else if (q.type === 'multi') {
+        showOptions(q.options, true);
+        awaitingMulti = true;
+        lockInput(false);
+        document.getElementById('user-input').placeholder = 'Selecciona arriba y pulsa Enviar...';
+        document.getElementById('hint').textContent = 'Selecciona una o varias opciones y presiona Enviar';
+      } else {
+        lockInput(false);
+        if (q.placeholder) document.getElementById('user-input').placeholder = q.placeholder;
+        document.getElementById('user-input').focus();
+      }
+    });
+  }, 200);
+}
+
+// ── SEND ───────────────────────────────────────────────────────────────────
+function sendMessage() {
+  const q = questions[current];
+  let value = '';
+
+  if (q.type === 'single') return; // handled by option click
+
+  if (q.type === 'multi') {
+    if (multiSelected.length === 0) {
+      pulse(document.getElementById('user-input'));
+      return;
+    }
+    value = multiSelected.join(', ');
+    clearOptions();
+    awaitingMulti = false;
+  } else {
+    value = document.getElementById('user-input').value.trim();
+    if (!value) { pulse(document.getElementById('user-input')); return; }
+  }
+
+  saveAndAdvance(value);
+}
+
+function saveAndAdvance(value) {
+  const q = questions[current];
+  answers[q.id] = value;
+  appendUserBubble(value);
+  document.getElementById('user-input').value = '';
+  autoResize(document.getElementById('user-input'));
+  lockInput(true);
+  document.getElementById('hint').textContent = 'Presiona Enter para enviar';
+  current++;
+  updateProgress();
+  setTimeout(() => askQuestion(current), 600);
+}
+
+// ── OPTION CLICK ───────────────────────────────────────────────────────────
+function optionClick(btn, value, isMulti) {
+  if (!isMulti) {
+    clearOptions();
+    saveAndAdvance(value);
+  } else {
+    if (btn.classList.contains('selected')) {
+      btn.classList.remove('selected');
+      multiSelected = multiSelected.filter(v => v !== value);
+    } else {
+      btn.classList.add('selected');
+      multiSelected.push(value);
+    }
+  }
+}
+
+function showOptions(opts, isMulti) {
+  const wrap = document.createElement('div');
+  wrap.className = 'options-wrap';
+  wrap.id = 'options-wrap';
+  opts.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = isMulti ? 'opt-btn opt-multi' : 'opt-btn';
+    btn.textContent = opt;
+    btn.onclick = () => optionClick(btn, opt, isMulti);
+    wrap.appendChild(btn);
+  });
+  if (isMulti) {
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'opt-btn';
+    confirmBtn.textContent = '✓ Confirmar selección';
+    confirmBtn.style.borderColor = 'var(--green)';
+    confirmBtn.style.color = 'var(--green)';
+    confirmBtn.onclick = sendMessage;
+    wrap.appendChild(confirmBtn);
+  }
+  document.getElementById('chat').appendChild(wrap);
+  scrollToBottom();
+}
+
+function clearOptions() {
+  const w = document.getElementById('options-wrap');
+  if (w) w.remove();
+}
+
+// ── TYPING INDICATOR ───────────────────────────────────────────────────────
+function showTyping(cb) {
+  const chat = document.getElementById('chat');
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.id = 'typing-indicator';
+  el.innerHTML = `<div class="avatar-sm">GM</div><div class="bubble bot"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  chat.appendChild(el);
+  scrollToBottom();
+  setTimeout(() => { el.remove(); cb(); scrollToBottom(); }, 900);
+}
+
+// ── BUBBLE HELPERS ─────────────────────────────────────────────────────────
+function appendBotBubble(html, raw = false) {
+  const chat = document.getElementById('chat');
+  const msg = document.createElement('div');
+  msg.className = 'msg bot';
+  msg.innerHTML = `<div class="avatar-sm">GM</div><div class="bubble bot">${raw ? html : escHtml(html)}</div>`;
+  // allow section-tag HTML
+  if (raw) msg.querySelector('.bubble').innerHTML = html;
+  chat.appendChild(msg);
+  scrollToBottom();
+}
+
+function appendUserBubble(text) {
+  const chat = document.getElementById('chat');
+  const msg = document.createElement('div');
+  msg.className = 'msg user';
+  msg.innerHTML = `<div class="bubble user">${escHtml(text)}</div>`;
+  chat.appendChild(msg);
+  scrollToBottom();
+}
+
+// ── FINISH ─────────────────────────────────────────────────────────────────
+function showFinish() {
+  lockInput(true);
+  showTyping(() => {
+    appendBotBubble('¡Excelente! 🎯 Has completado tu evaluación inicial.');
+    setTimeout(() => {
+      showTyping(() => {
+        appendBotBubble('Tu entrenador revisará toda la información y se pondrá en contacto contigo para diseñar tu programa personalizado. ¡El proceso comienza ahora!');
+        setTimeout(() => {
+          document.getElementById('input-area').style.display = 'none';
+          const card = document.getElementById('summary-card');
+          card.style.display = 'flex';
+          buildSummary();
+          scrollToBottom();
+        }, 800);
+      });
+    }, 1200);
+  });
+}
+
+function buildSummary() {
+  const rows = document.getElementById('sum-rows');
+  rows.innerHTML = '';
+  questions.forEach(q => {
+    if (!answers[q.id]) return;
+    const div = document.createElement('div');
+    div.className = 'sum-item';
+    div.innerHTML = `<strong>${q.section} — ${q.text.slice(0,45)}${q.text.length>45?'…':''}</strong>${escHtml(answers[q.id])}`;
+    rows.appendChild(div);
+  });
+}
+
+function buildResultsText() {
+  let txt = '📋 *EVALUACIÓN INICIAL — GM PHYSIQUE LAB*\n';
+  txt += '━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+  let lastSection = '';
+  questions.forEach(q => {
+    if (!answers[q.id]) return;
+    if (q.section !== lastSection) {
+      txt += `\n*📍 ${q.section.toUpperCase()}*\n`;
+      lastSection = q.section;
+    }
+    txt += `▸ ${q.text.slice(0,60)}\n  → ${answers[q.id]}\n`;
+  });
+  txt += '\n━━━━━━━━━━━━━━━━━━━━━━━\n';
+  txt += '_La ciencia detrás de tu transformación. — GM Physique Lab_';
+  return txt;
+}
+
+function copyResults() {
+  const txt = buildResultsText();
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ ¡Copiado!';
+    setTimeout(() => btn.textContent = '📋 Copiar texto', 2000);
+  });
+}
+
+function sendToWhatsApp() {
+  const txt = buildResultsText();
+  const encoded = encodeURIComponent(txt);
+  window.open(`https://wa.me/${ENTRENADOR_PHONE}?text=${encoded}`, '_blank');
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function lockInput(state) {
+  inputDisabled = state;
+  const inp = document.getElementById('user-input');
+  const btn = document.getElementById('send-btn');
+  inp.disabled = state;
+  btn.disabled = state;
+  btn.style.opacity = state ? '0.4' : '1';
+  if (!state) inp.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!inputDisabled) sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollToBottom() {
+  const chat = document.getElementById('chat');
+  setTimeout(() => chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' }), 50);
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function pulse(el) {
+  el.style.borderColor = '#ff4466';
+  setTimeout(() => el.style.borderColor = '', 600);
+}
+
+// Init input locked
+lockInput(true);
+</script>
+</body>
+</html>
